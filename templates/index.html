@@ -14,8 +14,8 @@
       --border: #2e3248;
       --accent: #4f6ef7;
       --accent2: #7c3aed;
-      --local: #0ea5e9;
-      --local-dark: #0369a1;
+      --local: #f97066;
+      --local-dark: #e03e32;
       --text: #e2e8f0;
       --text-muted: #8892a4;
       --green: #22c55e;
@@ -52,7 +52,7 @@
       padding: 3px 10px; border-radius: 4px; display: inline-block; margin-bottom: 10px;
     }
     .section-label.cloud { background: rgba(79,110,247,0.15); color: var(--accent); border: 1px solid rgba(79,110,247,0.3); }
-    .section-label.local { background: rgba(14,165,233,0.15); color: var(--local); border: 1px solid rgba(14,165,233,0.3); }
+    .section-label.local { background: rgba(249,112,102,0.15); color: var(--local); border: 1px solid rgba(14,165,233,0.3); }
 
     /* Forms */
     .form-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
@@ -120,17 +120,11 @@
     .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
     .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
     .metric-card.cloud-card { border-color: rgba(79,110,247,0.35); }
-    .metric-card.local-card { border-color: rgba(14,165,233,0.35); }
+    .metric-card.local-card { border-color: rgba(249,112,102,0.35); }
     .metric-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
     .metric-value { font-size: 1.25rem; font-weight: 700; color: var(--text); }
     .metric-sub { font-size: 0.73rem; color: var(--text-muted); margin-top: 2px; }
 
-    /* Split bar */
-    .split-bar-wrap { margin: 4px 0 10px; }
-    .split-bar { height: 8px; border-radius: 4px; background: var(--surface2); overflow: hidden; display: flex; }
-    .split-bar-cloud { background: var(--accent); transition: width 0.4s; }
-    .split-bar-local { background: var(--local); transition: width 0.4s; }
-    .split-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
 
     /* Ad buttons */
     .ad-section { margin-bottom: 14px; }
@@ -142,7 +136,7 @@
       font-size: 0.88rem; font-weight: 600; color: var(--text);
     }
     .ad-btn.cloud-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
-    .ad-btn.local-btn { border-color: rgba(14,165,233,0.4); }
+    .ad-btn.local-btn { border-color: rgba(249,112,102,0.4); }
     .ad-btn.local-btn:hover:not(:disabled) { background: var(--local); border-color: var(--local); }
     .ad-btn:active:not(:disabled) { transform: scale(0.95); }
     .ad-btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -157,7 +151,7 @@
     .log-entry .dur.local { color: var(--local); }
     .log-type-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 3px; font-weight: 700; flex-shrink: 0; }
     .log-type-badge.cloud { background: rgba(79,110,247,0.2); color: var(--accent); }
-    .log-type-badge.local { background: rgba(14,165,233,0.2); color: var(--local); }
+    .log-type-badge.local { background: rgba(249,112,102,0.2); color: var(--local); }
 
     /* Counts */
     .counts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
@@ -256,6 +250,10 @@
   <div class="card">
     <div class="card-title">Settings</div>
     <div class="form-row">
+      <div class="form-group">
+        <label>Event Name (optional)</label>
+        <input type="text" id="inp-event-name" placeholder="e.g. NCAA Regionals" style="width:200px;" />
+      </div>
       <div class="form-group">
         <label>Ad Goal (min/hr)</label>
         <input type="number" id="inp-goal" value="7.0" min="0" max="60" step="0.1" style="width:100px;" />
@@ -369,20 +367,10 @@
       <div class="metric-value" id="met-goal-diff">—</div>
       <div class="metric-sub" id="met-goal-diff-sub"></div>
     </div>
-  </div>
-
-  <!-- Cloud/Local split bar -->
-  <div class="card" style="padding:14px 18px;margin-bottom:14px;">
-    <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px;">Cloud vs Local Split</div>
-    <div class="split-bar-wrap">
-      <div class="split-bar">
-        <div class="split-bar-cloud" id="split-cloud" style="width:50%"></div>
-        <div class="split-bar-local" id="split-local" style="width:50%"></div>
-      </div>
-      <div class="split-labels">
-        <span id="split-cloud-label">☁ Cloud: —</span>
-        <span id="split-local-label">📡 Local: —</span>
-      </div>
+    <div class="metric-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div class="metric-label" style="text-align:center;margin-bottom:6px;">☁ vs 📡 Split</div>
+      <canvas id="split-pie" width="80" height="80"></canvas>
+      <div id="split-legend" style="font-size:0.68rem;color:var(--text-muted);margin-top:6px;text-align:center;line-height:1.6;">—</div>
     </div>
   </div>
 
@@ -512,6 +500,7 @@ let state = {
   startTimeMs: null,
   startDisplayMs: null,
   goal: 7.0,
+  eventName: '',
   eventDay: '',
 
   // Local ad library [{id, name, durationSeconds}]
@@ -708,6 +697,7 @@ function loadCarryoverFromData(data) {
   }
 
   if (data.ad_goal != null) document.getElementById('inp-goal').value = parseFloat(data.ad_goal);
+  if (data.event_name != null) document.getElementById('inp-event-name').value = data.event_name;
   if (data.event_day != null) {
     const prev = parseInt(data.event_day);
     if (!isNaN(prev) && prev >= 1) document.getElementById('inp-event-day').value = prev + 1;
@@ -735,6 +725,7 @@ function startBroadcast(startEarly = false) {
   const ap = document.getElementById('sel-ampm').value;
   const goal = parseFloat(document.getElementById('inp-goal').value);
   const ed = document.getElementById('inp-event-day').value.trim();
+  const en = document.getElementById('inp-event-name').value.trim();
 
   if (isNaN(goal) || goal < 0) { alert('Please enter a valid ad goal.'); return; }
   if (ap === 'PM' && h !== 12) h += 12;
@@ -747,6 +738,7 @@ function startBroadcast(startEarly = false) {
   state.startTimeMs = anchorMs;
   state.startDisplayMs = startEarly ? Date.now() : formDate.getTime();
   state.goal = goal;
+  state.eventName = en;
   state.eventDay = ed;
   state.todayCloudSeconds = 0;
   state.todayLocalSeconds = 0;
@@ -774,7 +766,11 @@ function buildTrackerScreen() {
   const start = new Date(state.startDisplayMs || state.startTimeMs);
   document.getElementById('trk-start-label').textContent =
     'Broadcast Start: ' + start.toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
-  document.getElementById('trk-event-day-label').textContent = state.eventDay ? `Event Day: ${state.eventDay}` : '';
+  const edl = document.getElementById('trk-event-day-label');
+  const parts = [];
+  if (state.eventName) parts.push(state.eventName);
+  if (state.eventDay) parts.push(`Day ${state.eventDay}`);
+  edl.textContent = parts.join(' — ');
   document.getElementById('rate-goal-val').textContent = state.goal.toFixed(2);
 
   // Cloud ad buttons
@@ -935,21 +931,8 @@ function updateDisplay() {
     gds.textContent = diff >= 0 ? 'above goal ✓' : 'below goal';
   }
 
-  // Split bar
-  const totalForSplit = state.todayCloudSeconds + state.todayLocalSeconds;
-  if (totalForSplit > 0) {
-    const cp = (state.todayCloudSeconds / totalForSplit * 100).toFixed(1);
-    const lp = (state.todayLocalSeconds / totalForSplit * 100).toFixed(1);
-    document.getElementById('split-cloud').style.width = cp + '%';
-    document.getElementById('split-local').style.width = lp + '%';
-    document.getElementById('split-cloud-label').textContent = `☁ Cloud: ${cp}% (${(state.todayCloudSeconds/60).toFixed(2)} min)`;
-    document.getElementById('split-local-label').textContent = `📡 Local: ${lp}% (${(state.todayLocalSeconds/60).toFixed(2)} min)`;
-  } else {
-    document.getElementById('split-cloud').style.width = '50%';
-    document.getElementById('split-local').style.width = '50%';
-    document.getElementById('split-cloud-label').textContent = '☁ Cloud: —';
-    document.getElementById('split-local-label').textContent = '📡 Local: —';
-  }
+  // Compact split pie chart
+  drawSplitPie(state.todayCloudSeconds, state.todayLocalSeconds);
 
   // Paused / waiting banner
   const pb = document.getElementById('paused-banner');
@@ -964,6 +947,52 @@ function updateDisplay() {
   }
 
   setAdButtonsEnabled(countdown === 0 && !state.isPaused);
+}
+
+function drawSplitPie(cloudSec, localSec) {
+  const canvas = document.getElementById('split-pie');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const total = cloudSec + localSec;
+  const w = canvas.width, h = canvas.height;
+  const cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 4;
+  ctx.clearRect(0, 0, w, h);
+
+  if (total === 0) {
+    // Empty state — grey ring
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.strokeStyle = '#2e3248'; ctx.lineWidth = 10; ctx.stroke();
+    document.getElementById('split-legend').textContent = 'No ads yet';
+    return;
+  }
+
+  const cloudAngle = (cloudSec / total) * Math.PI * 2;
+  const startAngle = -Math.PI / 2;
+
+  // Cloud slice
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, startAngle, startAngle + cloudAngle);
+  ctx.closePath();
+  ctx.fillStyle = '#4f6ef7';
+  ctx.fill();
+
+  // Local slice
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, startAngle + cloudAngle, startAngle + Math.PI*2);
+  ctx.closePath();
+  ctx.fillStyle = '#f97066';
+  ctx.fill();
+
+  // Donut hole
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.52, 0, Math.PI*2);
+  ctx.fillStyle = '#1a1d27'; ctx.fill();
+
+  const cp = (cloudSec/total*100).toFixed(0);
+  const lp = (localSec/total*100).toFixed(0);
+  document.getElementById('split-legend').innerHTML =
+    `<span style="color:#4f6ef7">☁ ${cp}%</span> &nbsp; <span style="color:#f97066">📡 ${lp}%</span>`;
 }
 
 function fmtHMS(sec) {
@@ -1107,6 +1136,7 @@ function exportJSON(elapsed) {
     version: '0.19',
     start_time: new Date(state.startDisplayMs || state.startTimeMs).toISOString(),
     ad_goal: state.goal,
+    event_name: state.eventName || null,
     event_day: state.eventDay || null,
     local_library: state.localLibrary,
     total_ad_seconds: cumTotal,
@@ -1183,6 +1213,7 @@ function generateReport(elapsed) {
         return `<tr><td>${ts}</td><td>${escHtml(ev.name)}</td><td>${ev.seconds}s (${(ev.seconds/60).toFixed(2)} min)</td></tr>`;
       }).join('');
 
+  const eventNameStr = state.eventName ? state.eventName : 'Broadcast';
   const reportDate = startDate.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const eventDayStr = state.eventDay ? ` — Event Day ${state.eventDay}` : '';
 
@@ -1190,7 +1221,7 @@ function generateReport(elapsed) {
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Broadcast Report — ${reportDate}</title>
+  <title>${escHtml(eventNameStr)} — Ad Report — ${reportDate}</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
@@ -1208,7 +1239,7 @@ function generateReport(elapsed) {
     .stat-card.green .stat-value{color:#16a34a;}
     .stat-card.red .stat-value{color:#dc2626;}
     .stat-card.blue .stat-value{color:#4f6ef7;}
-    .stat-card.cyan .stat-value{color:#0ea5e9;}
+    .stat-card.cyan .stat-value{color:#f97066;}
     .section-title{font-size:0.95rem;font-weight:700;color:#334155;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;}
     .charts-row{display:grid;grid-template-columns:1fr 2fr;gap:20px;margin-bottom:28px;}
     .chart-box{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
@@ -1225,7 +1256,7 @@ function generateReport(elapsed) {
 <body>
 <div class="page">
   <button class="print-btn" onclick="window.print()">🖨 Save as PDF (Print → Save as PDF)</button>
-  <h1>Broadcast Ad Report</h1>
+  <h1>${escHtml(eventNameStr)} — Ad Report</h1>
   <div class="subtitle">${reportDate}${eventDayStr} &nbsp;·&nbsp; Goal: ${state.goal.toFixed(2)} Ad min/Ehr</div>
 
   <!-- Summary stats -->
@@ -1255,7 +1286,7 @@ function generateReport(elapsed) {
       <div class="stat-value">${(state.todayCloudSeconds/60).toFixed(2)}</div>
       <div class="stat-sub">min today (${cloudPct}%)</div>
     </div>
-    <div class="stat-card cyan">
+    <div class="stat-card coral">
       <div class="stat-label">📡 Local</div>
       <div class="stat-value">${(state.todayLocalSeconds/60).toFixed(2)}</div>
       <div class="stat-sub">min today (${localPct}%)</div>
@@ -1283,7 +1314,7 @@ function generateReport(elapsed) {
   </table>
 
   <!-- Local ad log -->
-  <div class="section-title">Local Ad Log — For Partner Review</div>
+  <div class="section-title">Local Ad Log</div>
   <table>
     <thead><tr><th>Time</th><th>Spot Name</th><th>Duration</th></tr></thead>
     <tbody>${localLogRows}</tbody>
@@ -1296,7 +1327,7 @@ new Chart(pieCtx, {
   type: 'doughnut',
   data: {
     labels: ['☁ Cloud', '📡 Local'],
-    datasets: [{ data: [${state.todayCloudSeconds}, ${state.todayLocalSeconds}], backgroundColor: ['#4f6ef7','#0ea5e9'], borderWidth: 0 }]
+    datasets: [{ data: [${state.todayCloudSeconds}, ${state.todayLocalSeconds}], backgroundColor: ['#4f6ef7','#f97066'], borderWidth: 0 }]
   },
   options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
 });
@@ -1308,7 +1339,7 @@ new Chart(barCtx, {
     labels: ${JSON.stringify(barLabels)},
     datasets: [
       { label: '☁ Cloud', data: ${JSON.stringify(barCloud)}, backgroundColor: '#4f6ef7' },
-      { label: '📡 Local', data: ${JSON.stringify(barLocal)}, backgroundColor: '#0ea5e9' },
+      { label: '📡 Local', data: ${JSON.stringify(barLocal)}, backgroundColor: '#f97066' },
       { label: 'Goal', data: Array(${barLabels.length}).fill(${barGoal}), type: 'line', borderColor: '#ef4444', borderDash: [5,5], borderWidth: 2, pointRadius: 0, fill: false }
     ]
   },
