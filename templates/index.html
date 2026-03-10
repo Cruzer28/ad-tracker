@@ -604,7 +604,8 @@ const AUTOSAVE_KEY = 'ad_tracker_autosave';
 // ═══════════════════════════════════════════════════════════
 let state = {
   // Setup
-  startTimeMs: null,       // Date.now() at broadcast start
+  startTimeMs: null,       // Date.now() at actual click — timer anchor
+  startDisplayMs: null,    // Date from form fields — display label + export
   goal: 7.0,
   eventDay: '',
 
@@ -766,10 +767,13 @@ function startBroadcast() {
   if (ap === 'PM' && h !== 12) h += 12;
   if (ap === 'AM' && h === 12) h = 0;
 
-  const startDate = new Date(y, mo - 1, d, h, mn, 0, 0);
-  if (isNaN(startDate.getTime())) { alert('Invalid date/time.'); return; }
+  const displayDate = new Date(y, mo - 1, d, h, mn, 0, 0);
+  if (isNaN(displayDate.getTime())) { alert('Invalid date/time.'); return; }
 
-  state.startTimeMs = startDate.getTime();
+  // Use actual click time as timer anchor so elapsed always counts forward.
+  // The form date/time is stored separately just for the display label.
+  state.startTimeMs = Date.now();
+  state.startDisplayMs = displayDate.getTime();
   state.goal = goal;
   state.eventDay = ed;
   state.todayAdSeconds = 0;
@@ -795,8 +799,8 @@ function buildTrackerScreen() {
   document.getElementById('setup-screen').classList.add('hidden');
   document.getElementById('tracker-screen').classList.remove('hidden');
 
-  // Header info
-  const start = new Date(state.startTimeMs);
+  // Header info — use the form-entered display time, not the timer anchor
+  const start = new Date(state.startDisplayMs || state.startTimeMs);
   document.getElementById('trk-start-label').textContent =
     'Broadcast Start: ' + start.toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
   const edl = document.getElementById('trk-event-day-label');
@@ -913,16 +917,17 @@ function updateDisplay() {
 
   document.getElementById('met-today-rate').textContent = todayRate.toFixed(2);
 
-  // Goal diff
+  // Goal diff — use cumElapsed so carryover sessions don't show "not started"
   const diff = displayRate - goal;
   const gd = document.getElementById('met-goal-diff');
   const gds = document.getElementById('met-goal-diff-sub');
-  if (elapsed === 0 && cumElapsed === 0) {
-    gd.textContent = '—'; gds.textContent = 'not started';
+  if (cumElapsed < 10) {
+    gd.textContent = '—'; gds.textContent = 'just started';
+    gd.style.color = 'var(--text-muted)';
   } else {
     gd.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2);
     gd.style.color = diff >= 0 ? 'var(--green)' : (diff >= -1 ? 'var(--yellow)' : 'var(--red)');
-    gds.textContent = diff >= 0 ? 'above goal' : 'below goal';
+    gds.textContent = diff >= 0 ? 'above goal ✓' : 'below goal';
   }
 
   // Paused banner
@@ -1052,10 +1057,13 @@ function exportBroadcastData() {
     cumCounts[String(d)] = (state.carryoverCounts[d] || 0) + (state.todayCounts[d] || 0);
   });
 
-  const startDate = state.startTimeMs ? new Date(state.startTimeMs).toISOString().split('T')[0] : 'unknown';
+  const startDate = state.startDisplayMs ? new Date(state.startDisplayMs).toISOString().split('T')[0]
+    : new Date(state.startTimeMs).toISOString().split('T')[0];
+  const startISO = state.startDisplayMs ? new Date(state.startDisplayMs).toISOString()
+    : new Date(state.startTimeMs).toISOString();
   const payload = {
     version: '0.18',
-    start_time: state.startTimeMs ? new Date(state.startTimeMs).toISOString() : null,
+    start_time: startISO,
     ad_goal: state.goal,
     event_day: state.eventDay || null,
     total_ad_seconds: cumAdSec,
