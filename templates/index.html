@@ -450,8 +450,11 @@
   </div>
 
   <div class="btn-row">
-    <button class="btn btn-primary" style="font-size:1rem;padding:13px 28px;" onclick="startBroadcast()">
+    <button class="btn btn-primary" style="font-size:1rem;padding:13px 28px;" onclick="startBroadcast(false)">
       ▶ Start Broadcast
+    </button>
+    <button class="btn btn-secondary" style="font-size:0.88rem;" onclick="startBroadcast(true)" title="Start timer from right now, ignoring the scheduled start time">
+      ⚡ Start Early (use current time)
     </button>
   </div>
 </div>
@@ -753,7 +756,7 @@ function loadCarryoverFromData(data) {
 // ═══════════════════════════════════════════════════════════
 //  START BROADCAST
 // ═══════════════════════════════════════════════════════════
-function startBroadcast() {
+function startBroadcast(startEarly = false) {
   const y = parseInt(document.getElementById('sel-year').value);
   const mo = parseInt(document.getElementById('sel-month').value);
   const d = parseInt(document.getElementById('sel-day').value);
@@ -767,13 +770,15 @@ function startBroadcast() {
   if (ap === 'PM' && h !== 12) h += 12;
   if (ap === 'AM' && h === 12) h = 0;
 
-  const displayDate = new Date(y, mo - 1, d, h, mn, 0, 0);
-  if (isNaN(displayDate.getTime())) { alert('Invalid date/time.'); return; }
+  const formDate = new Date(y, mo - 1, d, h, mn, 0, 0);
+  if (isNaN(formDate.getTime())) { alert('Invalid date/time.'); return; }
 
-  // Use actual click time as timer anchor so elapsed always counts forward.
-  // The form date/time is stored separately just for the display label.
-  state.startTimeMs = Date.now();
-  state.startDisplayMs = displayDate.getTime();
+  // startEarly: anchor timer to right now regardless of scheduled time.
+  // Normal start: anchor to the form time — elapsed counts from that moment.
+  // If form time is in the future, elapsed stays 00:00:00 until we reach it.
+  const anchorMs = startEarly ? Date.now() : formDate.getTime();
+  state.startTimeMs = anchorMs;
+  state.startDisplayMs = startEarly ? Date.now() : formDate.getTime();
   state.goal = goal;
   state.eventDay = ed;
   state.todayAdSeconds = 0;
@@ -866,20 +871,41 @@ function getElapsedSeconds() {
   return Math.max(0, Math.floor(elapsed));
 }
 
+// Returns seconds until broadcast start (positive = future, 0 = started)
+function getCountdownSeconds() {
+  if (!state.startTimeMs) return 0;
+  const remaining = (state.startTimeMs - Date.now()) / 1000;
+  return remaining > 0 ? Math.ceil(remaining) : 0;
+}
+
 function updateDisplay() {
   const elapsed = getElapsedSeconds();
+  const countdown = getCountdownSeconds();
   state.currentElapsedSeconds = elapsed;
 
   // Clock
   document.getElementById('now-time').textContent =
     new Date().toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true});
 
-  // Elapsed
+  // Elapsed / countdown display
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s = elapsed % 60;
   const elapsedStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  document.getElementById('met-elapsed').textContent = elapsedStr + (state.isPaused ? ' ⏸' : '');
+  const elapsedEl = document.getElementById('met-elapsed');
+  if (countdown > 0) {
+    const ch = Math.floor(countdown / 3600);
+    const cm = Math.floor((countdown % 3600) / 60);
+    const cs = countdown % 60;
+    const cdStr = `${String(ch).padStart(2,'0')}:${String(cm).padStart(2,'0')}:${String(cs).padStart(2,'0')}`;
+    elapsedEl.textContent = `−${cdStr}`;
+    elapsedEl.style.color = 'var(--yellow)';
+    elapsedEl.title = 'Waiting for broadcast start time';
+  } else {
+    elapsedEl.textContent = elapsedStr + (state.isPaused ? ' ⏸' : '');
+    elapsedEl.style.color = '';
+    elapsedEl.title = '';
+  }
 
   // Cumulative calcs
   const cumAdSec = state.carryoverAdSeconds + state.todayAdSeconds;
@@ -930,8 +956,20 @@ function updateDisplay() {
     gds.textContent = diff >= 0 ? 'above goal ✓' : 'below goal';
   }
 
-  // Paused banner
-  document.getElementById('paused-banner').classList.toggle('visible', state.isPaused);
+  // Paused banner / countdown banner
+  const pb = document.getElementById('paused-banner');
+  if (countdown > 0) {
+    pb.textContent = '⏳ Waiting for broadcast start time — ad buttons disabled';
+    pb.classList.add('visible');
+  } else if (state.isPaused) {
+    pb.textContent = '⏸ BROADCAST PAUSED — ad buttons disabled';
+    pb.classList.add('visible');
+  } else {
+    pb.classList.remove('visible');
+  }
+
+  // Disable ad buttons during countdown or pause
+  setAdButtonsEnabled(countdown === 0 && !state.isPaused);
 }
 
 function fmtHMS(totalSec) {
